@@ -24,17 +24,19 @@ It contains all the files that are needed to compile the simulation that evaluat
 association. This simulation is shown in the manuscript (Section 2.1 of the Supplementary Material):
 -   *Data_parameters_gaussian.R* file containing all the fixed parameters used for this simulation (R file);
 -   *Data_creation_gaussian.R* file containing the functions used to create the datasets for this simulation (R file);
+-   *Simulated models* folder containing the files with the saved simulated estimated models (*models_JSM_gaussian_200.RData*).
+-   *Simulation.Rmd* file containing the code used to implement the simulation and look at the result (R-markdown file).
 
 ### Simulation 65 vs 200
 
 It contains all the files that are needed to compile the simulation that compare the models estimation when assuming small or big sample size. This simulation is shown in the manuscript (Section 2.2.2 of the Supplementary Material).
-  -   *Simulated models* folder containing the files with the saved simulated estimated models, distinguished between JMM and JSM, and between 65 and 200 patients (*models_JMM_beta_65.RData*, *models_JSM_beta_65.RData*, etc.).
+  -   *Simulated models* folder containing the files with the saved simulated estimated JSM models, distinguished between 65 and 200 patients (*models_JSM_beta_65.RData*, etc.).
   -   *Simulation_65vs200.Rmd* file containing the code used to implement the simulation and look at the result (R-markdown file).
 
 ### Simulation Default vs Informative
 
 It contains all the files that are needed to compile the simulation that compare the models estimation with or without an informative hyperprior for the variance parameters. This simulation is also described in the manuscript (Section 2.2.3 of the Supplementary Material).
-  -   *Simulated models* folder containing the files with the saved simulated estimated models, distinguished between JMM and JSM, and between 65 and 200 patients using the informative hyperprior setting.
+  -   *Simulated models* folder containing the files with the saved simulated estimated JSM models, distinguished between 65 and 200 patients using the informative hyperprior setting.
   -   *Simulation_DefaultvsInformative.Rmd* file containing the code used to implement the simulation and look at the result (R-markdown file).
 
 ## Reproducibility
