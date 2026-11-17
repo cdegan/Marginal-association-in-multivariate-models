@@ -21,7 +21,9 @@ In this folder we included all the codings files used for the simulations (and c
 ### Validation marginal association
 
 It contains all the files that are needed to compile the simulation that evaluate the validity of the proposed methods for estimating the marginal
-association. This simulation is shown in the manuscript (Section 2.1 of the Supplementary Material).
+association. This simulation is shown in the manuscript (Section 2.1 of the Supplementary Material):
+-   *Data_parameters_gaussian.R* file containing all the fixed parameters used for this simulation (R file);
+-   *Data_creation_gaussian.R* file containing the functions used to create the datasets for this simulation (R file);
 
 ### Simulation 65 vs 200
 
