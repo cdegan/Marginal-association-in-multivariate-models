@@ -30,7 +30,7 @@ D_y <- matrix(c(6.004, -0.38, -0.38, 0.0416), 2, byrow=TRUE)    # var-cov matrix
 D <- rbind(cbind(D_x, matrix(c(0.65399, -0.056380, -0.032162, 0.005315), 2, byrow=TRUE)),
            cbind(t(matrix(c(0.65399, -0.056380, -0.032162, 0.005315), 2, byrow=TRUE)), D_y)) # joint var-cov matrix of the random effects
 
-# scalar factor of the JSM
+# scaling factor of the JSM
 gamma <- 2.57 
 
 # precision of the beta distribution Beta(a, b) 
