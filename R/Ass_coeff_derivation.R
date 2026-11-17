@@ -40,37 +40,39 @@ coeff_jsm_old <- function(model, time) {
 # link_function: name of the link function used in the model (character)
 
 marginal_jsm_old <- function(model, fix_eff, R, n, a, t, cores, gamma, link_function){
-  temp <- inla.hyperpar.sample(n, model)
+  temp <- inla.posterior.sample(n, model, selection = list(Int.x = 1, t.x = 1, Int.y = 1, t.y = 1)
   
   # marginal of the random effects b
   mean_b <- rep(0, 4)
-  var_b <- list(NA)
-  for(i in 1:n){
-    cov1 <- matrix(c(1/temp[i, 5], temp[i, 7]*sqrt(1/temp[i, 5]*1/temp[i, 6]), temp[i, 7]*sqrt(1/temp[i, 5]*1/temp[i, 6]), 1/temp[i, 6]), nrow=2, ncol=2)
-    cov2 <- matrix(c(1/temp[i, 8], temp[i, 10]*sqrt(1/temp[i, 8]*1/temp[i, 9]), temp[i, 10]*sqrt(1/temp[i, 8]*1/temp[i, 9]), 1/temp[i, 9]), nrow=2, ncol=2)
-    var_b[[i]] <- as.matrix(bdiag(cov1, cov2)) 
-  }
+  var_b <- lapply(temp, function(x){
+    cov1 <- matrix(c(1/x$hyperpar[5], x$hyperpar[7]*sqrt(1/x$hyperpar[5]*1/x$hyperpar[6]), x$hyperpar[7]*sqrt(1/x$hyperpar[5]*1/x$hyperpar[6]), 1/x$hyperpar[6]), 2, 2)
+    cov2 <- matrix(c(1/x$hyperpar[8], x$hyperpar[10]*sqrt(1/x$hyperpar[8]*1/x$hyperpar[9]), x$hyperpar[10]*sqrt(1/x$hyperpar[8]*1/x$hyperpar[9]), 1/x$hyperpar[9]), 2, 2)
+    as.matrix(bdiag(cov1, cov2))
+  })
+
+  # sample-specific gamma
+  gamma_temp <- sapply(temp, function(x) x$hyperpar[11])
   
   # marginal of x
-  beta_x <- fix_eff[1:2]
-  mean_x <- c(1, t) %*% beta_x
-  sd_x <- apply(temp, 1, function(x) sqrt(1/x[5]+(1/x[6])*(t^2)+2*t*(x[7]*sqrt(1/x[5])*sqrt(1/x[6]))+1/x[1]))
+  mean_x <- lapply(temp, \(x) as.vector(c(1, t) %*% x$latent[1:2, ]))
+  sd_x <- unlist(lapply(temp, \(x) sqrt(1/x$hyperpar[5] + t^2/x$hyperpar[6] + 2*t*x$hyperpar[7] * sqrt(1/x$hyperpar[5]) * sqrt(1/x$hyperpar[6]) + 1/x$hyperpar[1])))
   
   # posterior distribution of the random effects b|x
   vector_bx <- lapply(var_b, function(x) x[1, ] + t*x[, 2])
   mean_bx <- var_bx <- r_bx <- mean_bx2 <- r_bx2 <- list(NA)
   for(i in 1:n){
-    mean_bx[[i]] <- mean_b + vector_bx[[i]]*sd_x[i]^(-2)*as.vector(a-mean_x)
+    mean_bx[[i]] <- mean_b + vector_bx[[i]]*sd_x[i]^(-2)*as.vector(a-mean_x[[i]])
     var_bx[[i]] <- as.matrix(round(var_b[[i]] - (vector_bx[[i]] * sd_x[i]^(-2)) %*% t(vector_bx[[i]]), 6))
     r_bx[[i]] <- mvtnorm::rmvnorm(R, mean_bx[[i]], var_bx[[i]], method = "svd")
-    mean_bx2[[i]] <- mean_b + vector_bx[[i]]*sd_x[i]^(-2)*as.vector((a+1)-mean_x)
+    mean_bx2[[i]] <- mean_b + vector_bx[[i]]*sd_x[i]^(-2)*as.vector((a+1)-mean_x[[i]])
     r_bx2[[i]] <- mvtnorm::rmvnorm(R, mean_bx2[[i]], var_bx[[i]], method = "svd")
   }
   
   # conditional mean of y|b 
-  beta_y <- fix_eff[3:4]
-  nu <- mclapply(r_bx, function(x) apply(x, 1, function(x) c(1, t)%*%beta_y + x[3] + t*x[4] + gamma*(mean_x+x[1]+t*x[2])), mc.cores = cores)
-  nu2 <- mclapply(r_bx2, function(x) apply(x, 1, function(x) c(1, t)%*%beta_y + x[3] + t*x[4] + gamma*(mean_x+x[1]+t*x[2])), mc.cores = cores)
+  beta_y <- lapply(temp, function(x) as.vector(c(1, t) %*% x$latent[3:4, ]))
+  nu <- mclapply(seq_len(n), function(i) {apply(r_bx[[i]], 1, function(x) beta_y[[i]] + x[3] + t * x[4] + gamma_temp[i] * (mean_x[[i]] + x[1] + t * x[2]))}, mc.cores = cores)
+  nu2 <- mclapply(seq_len(n), function(i) {apply(r_bx2[[i]], 1, function(x) beta_y[[i]] + x[3] + t * x[4] + gamma_temp[i] * (mean_x[[i]] + x[1] + t * x[2]))}, mc.cores = cores)
+
   mu_cond_y <- mclapply(nu, link_function, mc.cores = cores)
   mu_cond_y2 <- mclapply(nu2, link_function, mc.cores = cores)
   
