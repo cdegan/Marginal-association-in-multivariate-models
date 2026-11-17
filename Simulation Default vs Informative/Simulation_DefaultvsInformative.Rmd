@@ -11,21 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r libraries, include=FALSE}
 rm(list=ls())
 
-library(parallel)
-cores <- system("nproc", intern=TRUE)
-
-library(dplyr)
-library(plyr)
-library(tidyr)
-library(MASS)
-library(Rlab)
-library(progress)
-library(INLA)
-library(brinla)
-library(GLMMadaptive)
-library(ggpubr)
-library(ggplot2)
-
+source("Dependencies.R")
 source("Data_parameters.R")
 source("Data_creation.R")
 source("models_preparation.R")
