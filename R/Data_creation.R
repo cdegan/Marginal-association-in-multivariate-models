@@ -91,12 +91,10 @@ single.data <- function(N, M){
   data <- list()
   for(i in 1:M) data[[i]] <- create_data(N, n, p1, p2)
   
-  data_jmm <- lapply(data, function(x) create_data_jmm(x, N, true_betas, D, precision, sd_x))
   data_jsm <- lapply(data, function(x) create_data_jsm(x, N, true_betas, D_x, D_y, gamma, sd_x, precision))
-  datasets <- list("JMM" = data_jmm, "JSM" = data_jsm)
-  
-  return(datasets)
+  datasets <- data_jsm
+  return(data_jsm)
 }
 
 # OUTPUT:
-# datasets: list of JMM and JSM datasets, [[1]] JMM data and [[2]] JSM data
+# datasets: list of JSM datasets
