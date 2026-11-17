@@ -133,7 +133,7 @@ jsm <- function(data, N, time, sd_x, sd_y, family, cores, a, link){
 # gamma: posterior mode of the gamma hyperparameter
 # precisions: posterior summary of the hyperparameters of the model (matrix)
 # hyperpar_marginals: posterior marginal distributions of the hyperparameters (list of matrices)
-# coeff_jsm: estimation of association coefficient (output of function 'marginal_jmm_old' in file 'Ass_coeff_derivation.R') 
+# coeff_jsm: estimation of association coefficient (output of function 'marginal_jsm_old' in file 'Ass_coeff_derivation.R') 
 # coeff_jsm2: second way of estimation used only if the outcome is normally distributed (output of function 'coeff_jsm_old' in file 'Ass_coeff_derivation.R')
 # var_hyper: variance-covariance matrix of the random effects (matrix)
 # mlik: marginal likelihood (number)
@@ -236,27 +236,36 @@ jsm_new <- function(data, x, y, id, t, family, sd_x, sd_y, a, cores, time, link)
                 gamma = NA,
                 precisions = NA,
                 hyperpar_marginals = NA,
-                coeff_jsm = cbind(matrix(NA, ncol = length(time), nrow=2)),
+                coeff_jsm = matrix(NA, nrow = length(time), ncol = 5),
+                coeff_jsm_norm = matrix(NA, nrow = length(time), ncol = 4),
                 var_hyper = NA,
                 mlik = NA,
-                overall_dic = NA, y_dic = NA,
-                overall_waic = NA, y_waic = NA,
-                overall_cpo = NA, y_cpo = NA))
+                overall_dic = NA, 
+                y_dic = NA,
+                overall_waic = NA, 
+                y_waic = NA,
+                overall_cpo = NA, 
+                y_cpo = NA))
   }
   
   fix_eff <- JSM_INLA$summary.fixed$mean
   gamma_model <- JSM_INLA$summary.hyperpar$mean[which(rownames(JSM_INLA$summary.hyperpar) == "Beta for pred.x")]
-  ass_coeff <- sapply(time, function(y) marginal_jsm_new(JSM_INLA, fix_eff, R, n_rep, a, y, cores, gamma_model, link))
+  ass_coeff <- marginal_jsm_new(JSM_INLA, fix_eff, R, n_rep, a, time, cores, gamma_model, link)
+  if (family[3] == "gaussian") {ass_coeff_norm <- coeff_jsm_new(JSM_INLA, time)} else {ass_coeff_norm <- NA}
   return(list(fixed = fix_eff,
               gamma = gamma_model,
               precisions = JSM_INLA$summary.hyperpar,
               hyperpar_marginals = JSM_INLA$marginals.hyperpar,
               coeff_jsm = ass_coeff,
+              coeff_jsm_norm = ass_coeff_norm,
               var_hyper = obtainVarCov_pairwise(JSM_INLA, c(4:6), c(7:9), 2, 2)$Cov,
               mlik = JSM_INLA$mlik[1],
               overall_dic = JSM_INLA$dic$dic,
+              y_dic = sum(JSM_INLA$dic$local.dic[(N.x+N.y+1):(N.x+2*N.y)], na.rm=TRUE),
               overall_waic = JSM_INLA$waic$waic,
-              overall_cpo = -sum(log(JSM_INLA$cpo$cpo), na.rm=TRUE)))
+              y_waic = sum(JSM_INLA$waic$local.waic[(N.x+N.y+1):(N.x+2*N.y)], na.rm = TRUE),
+              overall_cpo = -sum(log(JSM_INLA$cpo$cpo), na.rm=TRUE), 
+              y_cpo = -sum(log(JSM_INLA$cpo$cpo[(N.x+N.y+1):(N.x+2*N.y)]), na.rm=TRUE)))
 }
 
 # OUTPUT:
@@ -264,9 +273,10 @@ jsm_new <- function(data, x, y, id, t, family, sd_x, sd_y, a, cores, time, link)
 # gamma: posterior mode of the gamma hyperparameter
 # precisions: posterior summary of the hyperparameters of the model (matrix)
 # hyperpar_marginals: posterior marginal distributions of the hyperparameters (list of matrices)
-# coeff_jsm: estimation of association coefficient (output of function 'marginal_jmm_old' in file 'Ass_coeff_derivation.R') 
+# coeff_jsm: estimation of association coefficient (output of function 'marginal_jsm_new' in file 'Ass_coeff_derivation.R') 
+# coeff_jsm_norm: estimation of association coefficient with the close formula when the outcome is normally distributed (output of function 'coeff_jsm_new' in file 'Ass_coeff_derivation.R') 
 # var_hyper: variance-covariance matrix of the random effects (matrix)
 # mlik: marginal likelihood (number)
-# overall_dic: DIC on the overall model (numbers)
-# overall_waic: WAIC on the overall model (numbers)
-# overall_cpo: CPO on the overall model (numbers)
+# overall_dic, y_dic: DIC on the overall model and on the y part, respectively (numbers)
+# overall_waic, y_waic: WAIC on the overall model and on the y part, respectively (numbers)
+# overall_cpo, y_cpo: CPO on the overall model and on the y part, respectively (numbers)
