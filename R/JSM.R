@@ -1,5 +1,12 @@
 ###################### FUNCTIONS TO SIMULATE A JOINT SCALED MODEL #####################################
 
+#-------------- ESTIMATION OF THE VARIANCE-COVARIANCE MATRIX OF THE RANDOM EFFECTS ---------------
+
+# INPUT:
+# model: INLA model
+# index: indexes of the precisions and correlations in summary.hyperpar (vector)
+# n1: number of random effects (number)
+
 obtainVarCov <- function(model, index, n1){
   # initialization
   SD <- diag(n1) 
