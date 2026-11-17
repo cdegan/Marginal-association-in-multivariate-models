@@ -15,7 +15,6 @@ source("Dependencies.R")
 source("Data_parameters.R")
 source("Data_creation.R")
 source("models_preparation.R")
-source("JMM.R")
 source("JSM.R")
 source("Ass_coeff_derivation.R")
 ```
