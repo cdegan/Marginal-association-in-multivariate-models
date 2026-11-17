@@ -1,5 +1,37 @@
 ###################### FUNCTIONS TO SIMULATE A JOINT SCALED MODEL #####################################
 
+obtainVarCov <- function(model, index, n1){
+  # initialization
+  SD <- diag(n1) 
+  CI <- matrix(nrow = length(index), ncol = 2) 
+  cor <- matrix(1, nrow=n1, ncol=n1)  
+  
+  # credible intervals
+  tryCatch(CI[c(1:n1),] <- t(sapply(index[1:n1], function(i) unlist(inla.zmarginal(inla.tmarginal(function(x) (1/x), model$marginals.hyperpar[[i]]), silent=TRUE)[c(3,7)]))), 
+           error = function(e) print("Some variance elements CI not well defined"))     # CI for the variances
+  tryCatch(CI[(n1+1):length(index),] <- unlist(model$summary.hyperpar[index[-c(1:n1)],c(3,5)]), 
+           error = function(e) print("Some correlation elements CI not well defined"))  # CI for the correlation values
+  
+  # standard deviations
+  tryCatch(SD <- sapply(index[1:n1], function(i) inla.zmarginal(inla.tmarginal(function(x) sqrt(1/x), model$marginals.hyperpar[[i]]), silent=TRUE)$mean), 
+           error = function(e) print("Some SD elements not well defined"))
+  
+  # correlations
+  cor[lower.tri(cor)] <- model$summary.hyperpar[index[-c(1:n1)],1]
+  cor[upper.tri(cor)] <- t(cor)[upper.tri(cor)]
+  
+  # variance-covariance matrix
+  answer <- diag(SD) %*% cor %*% diag(SD)
+  
+  return(list(Cov = answer, CI = CI))
+}
+
+# OUTPUT: 
+# Cov: variance-covariance matrix of the random effects (matrix)
+# CI: credible intervals of each element of the variance-covariance matrix (matrix)
+
+                                                                               
+
 #-------------- ESTIMATION OF THE VARIANCE-COVARIANCE MATRIX OF THE RANDOM EFFECTS ---------------
 
 # INPUT:
