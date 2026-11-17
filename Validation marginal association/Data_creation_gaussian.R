@@ -1,0 +1,94 @@
+######################### FUNCTIONS TO CREATE DATASETS FROM JSM WITH GAUSSIAN ENDOGENOUS VARIABLE AND ONE GAUSSIAN RESPONSE VARIABLE #############################
+
+# ------------------ DEFINITION OF THE DATA STRUCTURE -------------------- 
+
+# INPUT:
+# N: number of patient (number)
+# n: number of repeated measurements per patient (number)
+# p1: percentages of observed (not-missing) values in the x (number)
+# p2: percentages of observed (not-missing) values in the y (number)
+
+create_data <- function(N, n, p1, p2){
+  t_list <- list()
+  for(i in 1:N) t_list[[i]] <- sort(sample(seq(3, 26, by = 0.10), n))
+  
+  data <- data.frame(
+    id = rep(1:N, each = n),
+    t = unlist(t_list), 
+    observed_x = rbern(N*n, p1),
+    observed_y = rbern(N*n, p2),
+    x = NA, 
+    y = NA
+  )
+  
+  return(data)
+}
+
+# OUTPUT:
+# data: dataset structure
+
+
+
+#-------------------- SIMULATION FROM A JSM --------------------- 
+
+# INPUT:
+# data: output of function 'create_data' 
+# N: number of patients
+# true_betas: values that we assume to be the real estimation coefficients (vector)
+# D_x: variance-covariance matrix of the random effects of x, that we assume to be the real one (matrix)
+# D_y: variance-covariance matrix of the random effects of y, that we assume to be the real one (matrix)
+# gamma: gamma parameter of the JSM that we assume to be the real one (number)
+# sd_x: standard deviation of the error term of x that we assume to be the real one (number)
+# sd_y: standard deviation of the error term of y that we assume to be the real one (number)
+
+create_data_jsm <- function(data, N, true_betas, D_x, D_y, gamma, sd_x, sd_y){
+  # error terms
+  errorX = rnorm(N*n, sd = sd_x)
+  errorY = rnorm(N*n, sd = sd_y)
+  
+  # reformulation of the true beta of y
+  true_betas[3:4] <- true_betas[3:4] - gamma*true_betas[1:2]
+  
+  # random effects
+  u_x <- mvrnorm(N, mu = rep(0, 2), Sigma = D_x)
+  u_y <- mvrnorm(N, mu = rep(0, 2), Sigma = D_y)
+  
+  # linear predictor m
+  m <- true_betas[1] + data$t * true_betas[2] + rep(u_x[, 1], table(data$id)) + 
+    data$t * rep(u_x[, 2], table(data$id)) 
+  
+  # variable x
+  data$x <- m + errorX
+  
+  # variable y
+  data$y <- true_betas[3] + data$t * true_betas[4] + rep(u_y[, 1], table(data$id)) + 
+    data$t * rep(u_y[, 2], table(data$id)) + gamma*m + errorY     
+  
+  # randomly create an unbalanced data setting
+  data$x <- ifelse(data$observed_x == 0, NA, data$x)
+  data$y <- ifelse(data$observed_y == 0, NA, data$y)
+  
+  return(data)
+}
+
+# OUTPUT:
+# data: completed dataset created based on JSM 
+
+
+
+# ------------------ CREATION OF THE DATA -------------------- 
+
+# INPUT:
+# N: number of patient (number)
+# M: number of simulations (number)
+
+single.data <- function(N, M){
+  data <- list()
+  for(i in 1:M) data[[i]] <- create_data(N, n, p1, p2)
+  
+  data_jsm <- lapply(data, function(x) create_data_jsm(x, N, true_betas, D_x, D_y, gamma, sd_x, sd_y))
+  return(data_jsm)
+}
+
+# OUTPUT:
+# data_jsm: list of JSM datasets
