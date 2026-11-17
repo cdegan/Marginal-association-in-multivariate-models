@@ -1,0 +1,191 @@
+---
+title: "Empirical check of the estimation of the marginal coefficient"
+output: html_document
+date: "2026-10-27"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r libraries, include=FALSE}
+rm(list=ls())
+
+source("Data_parameters_gaussian.R")
+source("Data_creation_gaussian.R")
+setwd("~/R")
+source("JSM.R")
+source("Ass_coeff_derivation.R")
+source("Dependencies.R")
+```
+
+```{r creation of the datasets}
+# data_gaussian_200 <- single.data(200, M)
+# save(data_gaussian_200, file = "data_gaussian_200.RData")
+
+load("data_gaussian_200.RData")   # M datasets with 200 patients
+
+# checking the creation of the data
+plot_y <- ggplot(data = data_gaussian_200[[1]], aes(x = t, y = y, group = id)) +
+  geom_line() +
+  labs(x = "Time", y = "Outcome") +
+  theme_light() +  
+  theme(legend.position = "bottom", 
+        legend.text = element_text(size = 12),       
+        legend.title = element_text(size = 13),
+        axis.title.x = element_text(size = 13),
+        axis.text.x = element_text(size = 12),
+        axis.title.y = element_text(size = 13),
+        axis.text.y = element_text(size = 12)) +
+  scale_x_continuous(breaks = seq(0, 30, 5)) 
+
+plot_y
+# ggsave(file = "plot_y.jpg", plot_y, width = 6, height = 5)
+
+plot_x <- ggplot(data = data_gaussian_200[[1]], aes(x = t, y = x, group = id)) +
+  geom_line() +
+  labs(x = "Time", y = "Time-varying covariate") +
+  theme_light() +  
+  theme(legend.position = "bottom", 
+        legend.text = element_text(size = 12),       
+        legend.title = element_text(size = 13),
+        axis.title.x = element_text(size = 13),
+        axis.text.x = element_text(size = 12),
+        axis.title.y = element_text(size = 13),
+        axis.text.y = element_text(size = 12)) +
+  scale_x_continuous(breaks = seq(0, 30, 5)) 
+
+plot_x
+# ggsave(file = "plot_x.jpg", plot_x, width = 6, height = 5)
+```
+
+## Necessary functions
+
+```{r}
+lmm_start <- function(data, N, family){
+  N_obs <- nrow(data)
+  data$time_random <- data$id+N
+  
+  model_x <- inla(x ~ t + f(id, model = "iid2d", n=2*N) + f(time_random, t, copy = "id"), 
+                  data = data %>% filter(!is.na(x)), family = family[1], 
+                  control.predictor = list(compute=TRUE, link = rep(1, nrow(data %>% filter(!is.na(x))))))
+  
+  model_y <- inla(y ~ t + f(id, model = "iid2d", n=2*N) + f(time_random, t, copy = "id"), 
+                  data = data %>% filter(!is.na(y)), family = family[3], 
+                  control.predictor = list(compute=TRUE, link = rep(1, nrow(data %>% filter(!is.na(y))))))
+  
+  require(brinla)
+  sd_x <- bri.hyperpar.summary(model_x)[2:3, 1]
+  sd_y <- bri.hyperpar.summary(model_y)[2:3, 1]
+  
+  return(list(sd_x = sd_x, sd_y = sd_y))
+}
+```
+
+```{r }
+estimation_models_gaussian <- function(model_list, dataset, M, default, type, link){
+  # initialization progress bar
+  pb <- progress_bar$new(
+    format = "[:bar] :percent :eta",
+    total = length(1:M)
+  )
+  
+  # inizialization estimation
+  N <- length(unique(dataset[[1]]$id))
+  start_iter <- length(model_list) + 1
+  
+  for (i in start_iter:M) {
+    # defining the starting point of the hyperprior of the variance-covariance matrix of the random effects
+    if (default) {
+      vars <- list("sd_x" = c(1, 1), "sd_y" = c(1, 1))
+    } else {vars <- lmm_start(dataset[[i]], N, fam)}
+    
+    # estimating the models
+    model_list[[i]] <- jsm_new(dataset[[i]], dataset[[i]]$x, dataset[[i]]$y, "id", "t", fam, vars$sd_x, vars$sd_y, a, cores, time, link)
+    
+    # saving everything
+    if (default) {
+      save(model_list, file = paste0("models_", type, "_gaussian_", N, "default.RData"))
+    } else {save(model_list, file = paste0("models_", type, "_gaussian_", N, ".RData"))}
+    
+    # Update the progress bar
+    pb$tick()
+  }
+}
+```
+
+## Simulation
+
+```{r simulations on JSM dataset}
+fam <- c("gaussian", "gaussian", "gaussian")
+link_function <- function(x) (x)
+
+# models_JSM_gaussian_200 <- list()
+# estimation_models_gaussian(models_JSM_gaussian_200, data_gaussian_200, M, FALSE, "JSM", link_function)
+
+models_JSM_gaussian_200 <- get(load("models_JSM_gaussian_200.RData"))   # M JSM models with 200 patients
+```
+
+```{r summary of the simulation}
+models_JSM_gaussian_200[[5]]$coeff_jsm <- matrix(NA, nrow = length(time), ncol = 5)
+mat <- simplify2array(lapply(models_JSM_gaussian_200, \(x) x$coeff_jsm[, 2]))
+
+# average value of the numerical marginal association among the simulated datasets
+mean_datasets <- data.frame(t(apply(mat, 1, function(x)
+  c(
+    mean_int = mean(x, na.rm = TRUE),
+    lcl_int = quantile(x, 0.025, na.rm = TRUE),
+    ucl_int = quantile(x, 0.975, na.rm = TRUE)
+  )
+)))
+
+# real marginal effect
+mean_datasets$mean_real <- real_coeff
+
+# average values of the analytical marginal association among the simulated datasets
+mat2 <- simplify2array(lapply(models_JSM_gaussian_200, \(x) x$coeff_jsm_norm[, 3]))
+mean_datasets2 <- data.frame(t(apply(mat2, 1, function(x)
+  c(
+    mean_close = mean(x, na.rm = TRUE),
+    lcl_close = quantile(x, 0.025, na.rm = TRUE),
+    ucl_close = quantile(x, 0.975, na.rm = TRUE)
+  )
+)))
+```
+```{r simulation plot}
+# dataset for the plot 
+data_mean <- cbind(mean_datasets, mean_datasets2)
+data_mean$time <- time
+
+# plot
+plot_norm <- ggplot(data_mean, aes(x = time, y = mean_int)) +
+ geom_point(aes(color = "#08519c"), size = 2) +
+  geom_line(aes(color = "#08519c")) +
+  geom_line(aes(y = lcl_int.2.5., color = "#08519c"), linetype = "dashed", linewidth = 0.8) +
+  geom_line(aes(y = ucl_int.97.5., color = "#08519c"), linetype = "dashed", linewidth = 0.8) +
+  geom_point(aes(y = mean_real), size = 2) +
+  geom_line(aes(y = mean_real, color = "black"), linetype = "dotted", show.legend = TRUE) +
+  geom_point(aes(y = mean_close, color = "#D95F0E"), show.legend = TRUE, size = 2) +
+  geom_line(aes(y = mean_close, color = "#D95F0E"), show.legend = TRUE, linewidth = 0.8) +
+  geom_line(aes(y = lcl_close.2.5., color = "#D95F0E"), show.legend = TRUE, linetype = "dashed", linewidth = 0.8) +
+  geom_line(aes(y = ucl_close.97.5., color = "#D95F0E"), show.legend = TRUE, linetype = "dashed", linewidth = 0.8) +
+  labs(x = "Time", y = "Marginal effect", color = NULL) +
+  theme_light() +  # Cleaner look
+  theme(legend.position = "bottom", 
+        legend.text = element_text(size = 12),       # Increase legend text size
+        legend.title = element_text(size = 13),
+        axis.title.x = element_text(size = 13),
+        axis.text.x = element_text(size = 12),
+        axis.title.y = element_text(size = 13),
+        axis.text.y = element_text(size = 12)) +
+  scale_x_continuous(breaks = seq(min(data_mean$time), max(data_mean$time), by = 2)) +
+  scale_color_manual(values = c("#08519c", "#D95F0E", "black"), labels = c("Numerical estimation", "Analytical estimation", "Real value"), guide = "legend") 
+
+plot_norm
+# ggsave("jsm_normal_plot.jpg", plot = plot_norm, width = 10)
+```
+
+
+
+
+
